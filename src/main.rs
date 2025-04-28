@@ -2,6 +2,7 @@ mod error;
 mod recipe;
 mod templates;
 
+extern crate fastrand;
 extern crate log;
 extern crate mime;
 
@@ -34,10 +35,11 @@ struct AppState {
 async fn get_recipe(State(app_state): State<Arc<RwLock<AppState>>>) -> response::Html<String> {
     let mut app_state = app_state.write().await;
     let db = &app_state.db;
-    let recipe_result = sqlx::query_as!(Recipe, "SELECT * FROM recipes ORDER BY RANDOM() LIMIT 1;")
+
+    match sqlx::query_as!(Recipe, "SELECT * FROM recipes ORDER BY RANDOM() LIMIT 1;")
         .fetch_one(db)
-        .await;
-    match recipe_result {
+        .await
+    {
         Ok(recipe) => app_state.current_recipe = recipe,
         Err(e) => log::warn!("recipe fetch failed: {}", e),
     }
@@ -75,42 +77,54 @@ async fn init_db_from_csv(
     path: &std::path::PathBuf,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let recipes = read_recipes(path)?;
-    'next_recipe: for r in recipes {
+    'next_recipe: for rr in recipes {
         let mut rtx = db.begin().await?;
         let recipe_insert = sqlx::query!(
-            "INSERT INTO jokes (id, recipe_name, cuisine, \
-            ingredients, cooking_time_minutes, prep_time_minutes, \
-            servings, calories_per_serving, dietary_restrictions) \
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);",
-            r.id,
-            r.recipe_name,
-            r.cuisine,
-            r.ingredients,
-            r.cooking_time_minutes,
-            r.prep_time_minutes,
-            r.servings,
-            r.calories_per_serving,
-            r.dietary_restrictions,
+            "INSERT INTO recipes (id, cuisine, cooking_time_minutes, prep_time_minutes, servings, calories_per_serving) VALUES ($1, $2, $3, $4, $5, $6);",
+            rr.id,
+            rr.cuisine,
+            rr.cooking_time_minutes,
+            rr.prep_time_minutes,
+            rr.servings,
+            rr.calories_per_serving,
         )
         .execute(&mut *rtx)
         .await;
         if let Err(e) = recipe_insert {
-            eprintln!("error: joke insert: {}: {}", r.id, e);
+            eprintln!("error: joke insert: {}: {}", rr.id, e);
             rtx.rollback().await?;
             continue;
         };
-        // TODO: make a cuisine table
-        for t in ts {
-            let tag_insert =
-                sqlx::query!("INSERT INTO tags (joke_id, tag) VALUES ($1, $2);", r.id, t,)
-                    .execute(&mut *rtx)
-                    .await;
-            if let Err(e) = tag_insert {
-                eprintln!("error: tag insert: {} {}: {}", r.id, t, e);
+        /*
+        for ii in rr.ingredients {
+            let ingredient_insert = sqlx::query!(
+                "INSERT INTO ingredients (recipe_id, ingredient) VALUES ($1, $2);",
+                rr.id,
+                ii
+            )
+            .execute(&mut *rtx)
+            .await;
+            if let Err(e) = ingredient_insert {
+                eprintln!("error: ingredient insert: recipe {}; {}: {}", rr.id, ii, e);
                 rtx.rollback().await?;
                 continue 'next_recipe;
             };
         }
+        for dd in rr.dietary_restrictions {
+            let dietary_insert =
+                sqlx::query!("INSERT INTO dietary_restrictions (recipe_id, dietary_restriction) VALUES ($1, $2);", rr.id, dd)
+                    .execute(&mut *rtx)
+                    .await;
+            if let Err(e) = dietary_insert {
+                eprintln!(
+                    "error: dietary_restriction insert: recipe {}; {}: {}",
+                    rr.id, dd, e
+                );
+                rtx.rollback().await?;
+                continue 'next_recipe;
+            };
+        }
+        */
         rtx.commit().await?;
     }
     Ok(())
@@ -153,6 +167,14 @@ async fn serve(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let mime_favicon = "image/vnd.microsoft.icon".parse().unwrap();
     let app = Router::new()
         .route("/", routing::get(get_recipe))
+        .route_service(
+            "/recipe.css",
+            services::ServeFile::new_with_mime("assets/static/recipe.css", &mime::TEXT_CSS_UTF_8),
+        )
+        .route_service(
+            "/favicon.ico",
+            services::ServeFile::new_with_mime("assets/static/favicon.ico", &mime_favicon),
+        )
         .layer(trace_layer)
         .with_state(state);
 
