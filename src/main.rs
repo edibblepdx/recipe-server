@@ -77,11 +77,12 @@ async fn init_db_from_csv(
     path: &std::path::PathBuf,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let recipes = read_recipes(path)?;
-    'next_recipe: for rr in recipes {
+    //'next_recipe:
+    for rr in recipes {
         let mut rtx = db.begin().await?;
         let recipe_insert = sqlx::query!(
             "INSERT INTO recipes (id, cuisine, cooking_time_minutes, prep_time_minutes, servings, calories_per_serving) VALUES ($1, $2, $3, $4, $5, $6);",
-            rr.id,
+            rr.recipe_name,
             rr.cuisine,
             rr.cooking_time_minutes,
             rr.prep_time_minutes,
@@ -91,7 +92,7 @@ async fn init_db_from_csv(
         .execute(&mut *rtx)
         .await;
         if let Err(e) = recipe_insert {
-            eprintln!("error: joke insert: {}: {}", rr.id, e);
+            eprintln!("error: joke insert: {}: {}", rr.recipe_name, e);
             rtx.rollback().await?;
             continue;
         };

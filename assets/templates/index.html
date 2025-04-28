@@ -2,10 +2,16 @@
 <html>
     <head>
         <title>Recipes.web.rs</title>
+        <link rel="stylesheet" href="{{stylesheet}}">
     </head>
     <body>
-        <div>
-            <p>hello world</p>
+        <div class="recipe">
+            <span class="id">{{recipe.id}}</span><br/>
+            <span class="field">cuisine: {{recipe.cuisine}}</span><br/>
+            <span class="field">cook time: {{recipe.cooking_time_minutes}}</span><br/>
+            <span class="field">prep time: {{recipe.prep_time_minutes}}</span><br/>
+            <span class="field">servings: {{recipe.servings}}</span><br/>
+            <span class="field">calories: {{recipe.calories_per_serving}}</span><br/>
         </div>
     </body>
 </html>
