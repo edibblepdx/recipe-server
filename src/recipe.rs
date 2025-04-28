@@ -1,11 +1,8 @@
-use std::collections::HashSet;
-use std::ops::Deref;
-use std::path::Path;
+use std::{fs::File, path::Path};
 
 use crate::DatabaseError;
 
-use serde::Deserialize;
-
+#[derive(Debug, serde::Deserialize)]
 pub struct Recipe {
     pub id: u64,
     pub recipe_name: String,
@@ -17,8 +14,6 @@ pub struct Recipe {
     pub calories_per_serving: u16,
     pub dietary_restrictions: Vec<String>,
 }
-
-// recipe_name,cuisine,ingredients,cooking_time_minutes,prep_time_minutes,servings,calories_per_serving,dietary_restrictions
 
 impl Default for Recipe {
     fn default() -> Self {
@@ -40,6 +35,15 @@ impl Default for Recipe {
 }
 
 pub fn read_recipes<P: AsRef<Path>>(recipes_path: P) -> Result<Vec<Recipe>, DatabaseError> {
-    let recipes = vec![];
+    let mut recipes = Vec::new();
+
+    let file = File::open(recipes_path.as_ref())?;
+    let mut reader = csv::Reader::from_reader(file);
+
+    for result in reader.deserialize() {
+        let rr: Recipe = result?;
+        recipes.push(rr);
+    }
+
     Ok(recipes)
 }

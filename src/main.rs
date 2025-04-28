@@ -2,12 +2,12 @@ mod error;
 mod recipe;
 mod templates;
 
+extern crate log;
+extern crate mime;
+
 use error::*;
 use recipe::*;
 use templates::*;
-
-extern crate log;
-extern crate mime;
 
 use axum::{self, Router, extract::State, response, routing};
 use clap::Parser;
@@ -70,11 +70,13 @@ fn extract_db_dir(db_uri: &str) -> Result<&str, DatabaseError> {
     }
 }
 
-async fn init_db_from_csv(path: std::path::PathBuf) -> Result<(), DatabaseError> {
+async fn init_db_from_csv(
+    db: &SqlitePool,
+    path: &std::path::PathBuf,
+) -> Result<(), Box<dyn std::error::Error>> {
     let recipes = read_recipes(path)?;
-    'next_recipe: for rr in recipes {
+    'next_recipe: for r in recipes {
         let mut rtx = db.begin().await?;
-        let (r, ts) = rr.to_joke(); // WARN:
         let recipe_insert = sqlx::query!(
             "INSERT INTO jokes (id, recipe_name, cuisine, \
             ingredients, cooking_time_minutes, prep_time_minutes, \
@@ -111,7 +113,7 @@ async fn init_db_from_csv(path: std::path::PathBuf) -> Result<(), DatabaseError>
         }
         rtx.commit().await?;
     }
-    return Ok(());
+    Ok(())
 }
 
 async fn serve(args: Args) -> Result<(), Box<dyn std::error::Error>> {
@@ -122,8 +124,11 @@ async fn serve(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         sqlite::Sqlite::create_database(&db_uri).await?
     }
 
+    let db = SqlitePool::connect(&db_uri).await?;
+    sqlx::migrate!().run(&db).await?;
+
     if let Some(path) = args.init_from {
-        init_db_from_csv(path); // WARN: add ? maybe
+        init_db_from_csv(&db, &path).await?;
     }
 
     let current_recipe = Recipe::default();
@@ -138,7 +143,9 @@ async fn serve(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
-    // https://carlosmv.hashnode.dev/adding-logging-and-tracing-to-an-axum-app-rust
+    /*
+    https://carlosmv.hashnode.dev/adding-logging-and-tracing-to-an-axum-app-rust
+    */
     let trace_layer = trace::TraceLayer::new_for_http()
         .make_span_with(trace::DefaultMakeSpan::new().level(tracing::Level::INFO))
         .on_response(trace::DefaultOnResponse::new().level(tracing::Level::INFO));

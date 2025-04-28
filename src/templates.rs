@@ -4,7 +4,7 @@ use askama::Template;
 
 #[derive(Template)]
 #[template(path = "index.html")]
-struct IndexTemplate<'a> {
+pub struct IndexTemplate<'a> {
     recipe: &'a Recipe,
     stylesheet: &'static str,
 }
