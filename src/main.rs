@@ -131,6 +131,21 @@ async fn init_db_from_csv(
     Ok(())
 }
 
+fn init_router() -> Router<Arc<RwLock<AppState>>> {
+    let mime_favicon = "image/vnd.microsoft.icon".parse().unwrap();
+
+    Router::new()
+        .route("/", routing::get(get_recipe))
+        .route_service(
+            "/recipe.css",
+            services::ServeFile::new_with_mime("assets/static/recipe.css", &mime::TEXT_CSS_UTF_8),
+        )
+        .route_service(
+            "/favicon.ico",
+            services::ServeFile::new_with_mime("assets/static/favicon.ico", &mime_favicon),
+        )
+}
+
 async fn serve(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let db_uri = get_db_uri(args.db_uri.as_deref());
     if !sqlite::Sqlite::database_exists(&db_uri).await? {
@@ -146,11 +161,6 @@ async fn serve(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         init_db_from_csv(&db, &path).await?;
     }
 
-    let current_recipe = Recipe::default();
-
-    let app_state = AppState { db, current_recipe };
-    let state = Arc::new(RwLock::new(app_state));
-
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -165,19 +175,11 @@ async fn serve(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         .make_span_with(trace::DefaultMakeSpan::new().level(tracing::Level::INFO))
         .on_response(trace::DefaultOnResponse::new().level(tracing::Level::INFO));
 
-    let mime_favicon = "image/vnd.microsoft.icon".parse().unwrap();
-    let app = Router::new()
-        .route("/", routing::get(get_recipe))
-        .route_service(
-            "/recipe.css",
-            services::ServeFile::new_with_mime("assets/static/recipe.css", &mime::TEXT_CSS_UTF_8),
-        )
-        .route_service(
-            "/favicon.ico",
-            services::ServeFile::new_with_mime("assets/static/favicon.ico", &mime_favicon),
-        )
-        .layer(trace_layer)
-        .with_state(state);
+    let current_recipe = Recipe::default();
+
+    let app_state = AppState { db, current_recipe };
+    let state = Arc::new(RwLock::new(app_state));
+    let app = init_router().layer(trace_layer).with_state(state);
 
     let listener = net::TcpListener::bind("127.0.0.1:3000").await?;
     axum::serve(listener, app).await?;
