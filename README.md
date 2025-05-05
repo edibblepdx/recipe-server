@@ -13,7 +13,9 @@ To build and run this code for the first time, you will probably want:
 cargo run --release -- --init-from assets/static/receipes_from_around_the_world.csv
 
 This will load an initial collection of recipes into the newly-created database.
-Development. Warning that some of the recipes in the dataset are malformed and will not load properly.
+Development. 
+
+> Warning that some of the recipes in the dataset are malformed and will not load properly.
 
 ## Development
 
