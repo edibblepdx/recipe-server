@@ -12,6 +12,18 @@
             <span class="field">prep time: {{recipe.prep_time_minutes}}</span><br/>
             <span class="field">servings: {{recipe.servings}}</span><br/>
             <span class="field">calories: {{recipe.calories_per_serving}}</span><br/>
+            <h3>Ingredients</h3>
+            <ul>
+                {% for ingredient in recipe.ingredients %}
+                    <li>{{ ingredient }}</li>
+                {% endfor %}
+            </ul>
+            <h3>Dietary Restrictions</h3>
+            <ul>
+                {% for restriction in recipe.dietary_restrictions %}
+                    <li>{{ restriction }}</li>
+                {% endfor %}
+            </ul>
         </div>
     </body>
 </html>

@@ -3,7 +3,6 @@ use std::{fs::File, path::Path};
 
 use crate::DatabaseError;
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub struct Recipe {
     pub id: String,
@@ -16,7 +15,6 @@ pub struct Recipe {
     pub dietary_restrictions: Vec<String>,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, serde::Deserialize)]
 pub struct CsvRecipe {
     pub recipe_name: String,

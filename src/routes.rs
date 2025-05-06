@@ -31,7 +31,7 @@ async fn get_recipe(State(app_state): State<Arc<RwLock<AppState>>>) -> response:
         .await
     {
         Ok(recipe) => {
-            let recipe = Recipe {
+            let mut recipe = Recipe {
                 id: recipe.id,
                 cuisine: recipe.cuisine,
                 ingredients: Vec::new(),
@@ -41,20 +41,39 @@ async fn get_recipe(State(app_state): State<Arc<RwLock<AppState>>>) -> response:
                 calories_per_serving: recipe.calories_per_serving,
                 dietary_restrictions: Vec::new(),
             };
+
+            recipe.ingredients = match sqlx::query_scalar!(
+                "SELECT ingredient FROM ingredients i WHERE i.recipe_id = $1;",
+                recipe.id
+            )
+            .fetch_all(db)
+            .await
+            {
+                Ok(v) => v,
+                Err(e) => {
+                    log::warn!("ingredient fetch failed: {}", e);
+                    vec![]
+                }
+            };
+
+            recipe.dietary_restrictions = match sqlx::query_scalar!(
+                "SELECT dietary_restriction FROM dietary_restrictions d WHERE d.recipe_id = $1;",
+                recipe.id
+            )
+            .fetch_all(db)
+            .await
+            {
+                Ok(v) => v,
+                Err(e) => {
+                    log::warn!("dietary restriction fetch failed: {}", e);
+                    vec![]
+                }
+            };
+
             app_state.current_recipe = recipe;
         }
         Err(e) => log::warn!("recipe fetch failed: {}", e),
     }
-
-    /*
-    match sqlx::query_as!(Recipe, "SELECT * FROM recipes ORDER BY RANDOM() LIMIT 1;")
-        .fetch_one(db)
-        .await
-    {
-        Ok(recipe) => app_state.current_recipe = recipe,
-        Err(e) => log::warn!("recipe fetch failed: {}", e),
-    }
-    */
 
     let recipe = IndexTemplate::recipe(&app_state.current_recipe);
     response::Html(recipe.to_string())
