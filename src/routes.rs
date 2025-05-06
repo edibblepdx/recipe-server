@@ -2,10 +2,22 @@ use crate::AppState;
 use crate::Recipe;
 use crate::templates::*;
 
-use axum::{Router, extract::State, response, routing};
+use axum::{
+    Router,
+    extract::{Query, State},
+    http,
+    response::{self, IntoResponse},
+    routing,
+};
+use serde::Deserialize;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tower_http::services;
+
+#[derive(Deserialize)]
+struct GetRecipeParams {
+    id: Option<String>,
+}
 
 pub fn init_router() -> Router<Arc<RwLock<AppState>>> {
     let mime_favicon = "image/vnd.microsoft.icon".parse().unwrap();
@@ -22,59 +34,83 @@ pub fn init_router() -> Router<Arc<RwLock<AppState>>> {
         )
 }
 
-async fn get_recipe(State(app_state): State<Arc<RwLock<AppState>>>) -> response::Html<String> {
+async fn get_recipe(
+    State(app_state): State<Arc<RwLock<AppState>>>,
+    Query(params): Query<GetRecipeParams>,
+) -> Result<response::Response, http::StatusCode> {
     let mut app_state = app_state.write().await;
     let db = &app_state.db;
 
-    match sqlx::query!("SELECT * FROM recipes ORDER BY RANDOM() LIMIT 1;")
-        .fetch_one(db)
-        .await
-    {
-        Ok(recipe) => {
-            let mut recipe = Recipe {
-                id: recipe.id,
-                cuisine: recipe.cuisine,
-                ingredients: Vec::new(),
-                cooking_time_minutes: recipe.cooking_time_minutes,
-                prep_time_minutes: recipe.prep_time_minutes,
-                servings: recipe.servings,
-                calories_per_serving: recipe.calories_per_serving,
-                dietary_restrictions: Vec::new(),
-            };
-
-            recipe.ingredients = match sqlx::query_scalar!(
-                "SELECT ingredient FROM ingredients i WHERE i.recipe_id = $1;",
-                recipe.id
-            )
-            .fetch_all(db)
+    if let GetRecipeParams { id: Some(id), .. } = params {
+        let result = match sqlx::query!("SELECT * FROM recipes WHERE id = $1;", id)
+            .fetch_one(db)
             .await
-            {
-                Ok(v) => v,
-                Err(e) => {
-                    log::warn!("ingredient fetch failed: {}", e);
-                    vec![]
-                }
-            };
+        {
+            Ok(recipe) => {
+                let mut recipe = Recipe {
+                    id: recipe.id,
+                    cuisine: recipe.cuisine,
+                    ingredients: vec![],
+                    cooking_time_minutes: recipe.cooking_time_minutes,
+                    prep_time_minutes: recipe.prep_time_minutes,
+                    servings: recipe.servings,
+                    calories_per_serving: recipe.calories_per_serving,
+                    dietary_restrictions: vec![],
+                };
 
-            recipe.dietary_restrictions = match sqlx::query_scalar!(
-                "SELECT dietary_restriction FROM dietary_restrictions d WHERE d.recipe_id = $1;",
-                recipe.id
-            )
-            .fetch_all(db)
+                recipe.ingredients = match sqlx::query_scalar!(
+                    "SELECT ingredient FROM ingredients WHERE recipe_id = $1;",
+                    recipe.id
+                )
+                .fetch_all(db)
+                .await
+                {
+                    Ok(v) => v,
+                    Err(e) => {
+                        log::warn!("ingredient fetch failed: {}", e);
+                        vec![]
+                    }
+                };
+
+                recipe.dietary_restrictions = match sqlx::query_scalar!(
+                    "SELECT dietary_restriction FROM dietary_restrictions WHERE recipe_id = $1;",
+                    recipe.id
+                )
+                .fetch_all(db)
+                .await
+                {
+                    Ok(v) => v,
+                    Err(e) => {
+                        log::warn!("dietary restriction fetch failed: {}", e);
+                        vec![]
+                    }
+                };
+
+                app_state.current_recipe = recipe;
+                let recipe = IndexTemplate::new(&app_state.current_recipe);
+                Ok(response::Html(recipe.to_string()).into_response())
+            }
+            Err(e) => {
+                log::warn!("recipe fetch failed: {}", e);
+                Err(http::StatusCode::NOT_FOUND)
+            }
+        };
+        return result;
+    } else {
+        // Random Recipe
+        match sqlx::query_scalar!("SELECT id FROM recipes ORDER BY RANDOM() LIMIT 1;")
+            .fetch_one(db)
             .await
-            {
-                Ok(v) => v,
-                Err(e) => {
-                    log::warn!("dietary restriction fetch failed: {}", e);
-                    vec![]
-                }
-            };
-
-            app_state.current_recipe = recipe;
+        {
+            Ok(id) => {
+                // redirect
+                let uri = format!("/?id={}", id);
+                Ok(response::Redirect::to(&uri).into_response())
+            }
+            Err(e) => {
+                log::error!("recipe selection failed: {e}");
+                panic!("recipe selection failed")
+            }
         }
-        Err(e) => log::warn!("recipe fetch failed: {}", e),
     }
-
-    let recipe = IndexTemplate::recipe(&app_state.current_recipe);
-    response::Html(recipe.to_string())
 }

@@ -10,7 +10,7 @@ pub struct IndexTemplate<'a> {
 }
 
 impl<'a> IndexTemplate<'a> {
-    pub fn recipe(recipe: &'a Recipe) -> Self {
+    pub fn new(recipe: &'a Recipe) -> Self {
         Self {
             recipe,
             stylesheet: "/recipe.css",
