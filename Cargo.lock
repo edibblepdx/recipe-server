@@ -1383,6 +1383,7 @@ dependencies = [
  "fastrand",
  "log",
  "mime",
+ "regex",
  "serde",
  "serde_json",
  "sqlx",

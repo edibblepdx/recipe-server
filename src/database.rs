@@ -38,7 +38,7 @@ pub async fn init_db_from_csv(
         let mut rtx = db.begin().await?;
         let recipe_insert = sqlx::query!(
             "INSERT INTO recipes (id, cuisine, cooking_time_minutes, prep_time_minutes, servings, calories_per_serving) VALUES ($1, $2, $3, $4, $5, $6);",
-            rr.recipe_name,
+            rr.id,
             rr.cuisine,
             rr.cooking_time_minutes,
             rr.prep_time_minutes,
@@ -48,7 +48,7 @@ pub async fn init_db_from_csv(
         .execute(&mut *rtx)
         .await;
         if let Err(e) = recipe_insert {
-            eprintln!("error: joke insert: {}: {}", rr.recipe_name, e);
+            eprintln!("error: joke insert: {}: {}", rr.id, e);
             rtx.rollback().await?;
             continue;
         };

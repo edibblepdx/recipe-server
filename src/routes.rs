@@ -26,6 +26,27 @@ async fn get_recipe(State(app_state): State<Arc<RwLock<AppState>>>) -> response:
     let mut app_state = app_state.write().await;
     let db = &app_state.db;
 
+    match sqlx::query!("SELECT * FROM recipes ORDER BY RANDOM() LIMIT 1;")
+        .fetch_one(db)
+        .await
+    {
+        Ok(recipe) => {
+            let recipe = Recipe {
+                id: recipe.id,
+                cuisine: recipe.cuisine,
+                ingredients: Vec::new(),
+                cooking_time_minutes: recipe.cooking_time_minutes,
+                prep_time_minutes: recipe.prep_time_minutes,
+                servings: recipe.servings,
+                calories_per_serving: recipe.calories_per_serving,
+                dietary_restrictions: Vec::new(),
+            };
+            app_state.current_recipe = recipe;
+        }
+        Err(e) => log::warn!("recipe fetch failed: {}", e),
+    }
+
+    /*
     match sqlx::query_as!(Recipe, "SELECT * FROM recipes ORDER BY RANDOM() LIMIT 1;")
         .fetch_one(db)
         .await
@@ -33,6 +54,8 @@ async fn get_recipe(State(app_state): State<Arc<RwLock<AppState>>>) -> response:
         Ok(recipe) => app_state.current_recipe = recipe,
         Err(e) => log::warn!("recipe fetch failed: {}", e),
     }
+    */
+
     let recipe = IndexTemplate::recipe(&app_state.current_recipe);
     response::Html(recipe.to_string())
 }
