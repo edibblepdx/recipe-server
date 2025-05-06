@@ -80,6 +80,8 @@ async fn serve(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let app = init_router().layer(trace_layer).with_state(state);
 
     let listener = net::TcpListener::bind("127.0.0.1:3000").await?;
+    eprintln!("Listening on 127.0.0.1:3000");
+
     axum::serve(listener, app).await?;
     Ok(())
 }
