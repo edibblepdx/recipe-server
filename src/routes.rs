@@ -49,6 +49,7 @@ async fn get_recipe(
             Ok(recipe) => {
                 let mut recipe = Recipe {
                     id: recipe.id,
+                    name: recipe.name,
                     cuisine: recipe.cuisine,
                     ingredients: vec![],
                     cooking_time_minutes: recipe.cooking_time_minutes,

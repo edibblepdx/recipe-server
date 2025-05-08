@@ -5,7 +5,8 @@ use crate::DatabaseError;
 
 #[derive(Debug)]
 pub struct Recipe {
-    pub id: String,
+    pub id: i64,
+    pub name: String,
     pub cuisine: String,
     pub ingredients: Vec<String>,
     pub cooking_time_minutes: i64,
@@ -30,7 +31,8 @@ pub struct CsvRecipe {
 impl Default for Recipe {
     fn default() -> Self {
         Self {
-            id: "Meatballs from Mars".to_string(),
+            id: 0,
+            name: "Meatballs from Mars".to_string(),
             cuisine: "Martian".to_string(),
             ingredients: vec![
                 "dried martian gleebles".to_string(),
@@ -61,7 +63,8 @@ impl From<CsvRecipe> for Recipe {
             .collect();
 
         Self {
-            id: v.recipe_name,
+            id: 0,
+            name: v.recipe_name,
             cuisine: v.cuisine,
             ingredients: ingredients_vec,
             cooking_time_minutes: v.cooking_time_minutes,

@@ -33,44 +33,52 @@ pub async fn init_db_from_csv(
     path: &std::path::PathBuf,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let recipes = read_recipes(path)?;
-    'next_recipe: for rr in recipes {
+    'next_recipe: for mut rr in recipes {
         let mut rtx = db.begin().await?;
-        let recipe_insert = sqlx::query!(
-            "INSERT INTO recipes (id, cuisine, cooking_time_minutes, prep_time_minutes, servings, calories_per_serving) VALUES ($1, $2, $3, $4, $5, $6);",
-            rr.id,
+        match sqlx::query_scalar!(
+            "INSERT INTO recipes (name, cuisine, cooking_time_minutes, prep_time_minutes, servings, calories_per_serving) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id;",
+            rr.name,
             rr.cuisine,
             rr.cooking_time_minutes,
             rr.prep_time_minutes,
             rr.servings,
             rr.calories_per_serving,
         )
-        .execute(&mut *rtx)
-        .await;
-        if let Err(e) = recipe_insert {
-            eprintln!("error: joke insert: {}: {}", rr.id, e);
-            rtx.rollback().await?;
-            continue;
-        };
+        .fetch_one(&mut *rtx)
+        .await
+        {
+            Ok(id) => rr.id = id,
+            Err(e) => {
+                eprintln!("error: joke insert: {}: {}", rr.id, e);
+                rtx.rollback().await?;
+                continue;
+            }
+        }
+
         for ii in rr.ingredients {
-            let ingredient_insert = sqlx::query!(
+            if let Err(e) = sqlx::query!(
                 "INSERT INTO ingredients (recipe_id, ingredient) VALUES ($1, $2);",
                 rr.id,
-                ii
+                ii,
             )
             .execute(&mut *rtx)
-            .await;
-            if let Err(e) = ingredient_insert {
+            .await
+            {
                 eprintln!("error: ingredient insert: recipe {}; {}: {}", rr.id, ii, e);
                 rtx.rollback().await?;
                 continue 'next_recipe;
             };
         }
+
         for dd in rr.dietary_restrictions {
-            let dietary_insert =
-                sqlx::query!("INSERT INTO dietary_restrictions (recipe_id, dietary_restriction) VALUES ($1, $2);", rr.id, dd)
-                    .execute(&mut *rtx)
-                    .await;
-            if let Err(e) = dietary_insert {
+            if let Err(e) = sqlx::query!(
+                "INSERT INTO dietary_restrictions (recipe_id, dietary_restriction) VALUES ($1, $2);",
+                rr.id,
+                dd,
+            )
+                .execute(&mut *rtx)
+                .await
+            {
                 eprintln!(
                     "error: dietary_restriction insert: recipe {}; {}: {}",
                     rr.id, dd, e
