@@ -32,17 +32,14 @@ impl Default for Recipe {
     fn default() -> Self {
         Self {
             id: 0,
-            name: "Meatballs from Mars".to_string(),
-            cuisine: "Martian".to_string(),
-            ingredients: vec![
-                "dried martian gleebles".to_string(),
-                "fish from space".to_string(),
-            ],
-            cooking_time_minutes: 1_000_000_000,
-            prep_time_minutes: 1_000_000_000,
-            servings: 99,
-            calories_per_serving: 1_000_000_000,
-            dietary_restrictions: vec!["humans should not consume".to_string()],
+            name: "Not Found".to_string(),
+            cuisine: "None".to_string(),
+            ingredients: vec!["None".to_string()],
+            cooking_time_minutes: 0,
+            prep_time_minutes: 0,
+            servings: 0,
+            calories_per_serving: 0,
+            dietary_restrictions: vec!["None".to_string()],
         }
     }
 }

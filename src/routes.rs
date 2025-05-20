@@ -17,6 +17,7 @@ use tower_http::services;
 #[derive(Deserialize)]
 struct GetRecipeParams {
     id: Option<String>,
+    cuisine: Option<String>,
 }
 
 pub fn init_router() -> Router<Arc<RwLock<AppState>>> {
@@ -93,10 +94,42 @@ async fn get_recipe(
             }
             Err(e) => {
                 log::warn!("recipe fetch failed: {}", e);
-                Err(http::StatusCode::NOT_FOUND)
+                //Err(http::StatusCode::NOT_FOUND)
+                app_state.current_recipe = Recipe::default();
+                let recipe = IndexTemplate::new(&app_state.current_recipe);
+                Ok(response::Html(recipe.to_string()).into_response())
             }
         };
         return result;
+    } else if let GetRecipeParams {
+        cuisine: Some(cuisine),
+        ..
+    } = params
+    {
+        if cuisine.trim().is_empty() {
+            // redirect
+            return Ok(response::Redirect::to("/").into_response());
+        }
+
+        match sqlx::query_scalar!(
+            "SELECT id FROM recipes WHERE cuisine = $1 COLLATE NOCASE ORDER BY RANDOM() LIMIT 1;",
+            cuisine
+        )
+        .fetch_one(db)
+        .await
+        {
+            Ok(id) => {
+                // redirect
+                let uri = format!("/?id={}", id);
+                Ok(response::Redirect::to(&uri).into_response())
+            }
+            Err(e) => {
+                log::error!("not found: {e}");
+                app_state.current_recipe = Recipe::default();
+                let recipe = IndexTemplate::new(&app_state.current_recipe);
+                Ok(response::Html(recipe.to_string()).into_response())
+            }
+        }
     } else {
         // Random Recipe
         match sqlx::query_scalar!("SELECT id FROM recipes ORDER BY RANDOM() LIMIT 1;")
@@ -110,8 +143,14 @@ async fn get_recipe(
             }
             Err(e) => {
                 log::error!("recipe selection failed: {e}");
-                panic!("recipe selection failed")
+                app_state.current_recipe = Recipe::default();
+                let recipe = IndexTemplate::new(&app_state.current_recipe);
+                Ok(response::Html(recipe.to_string()).into_response())
             }
         }
     }
 }
+
+//fn recipe_by_random() {}
+//fn recipe_by_cuisuine() {}
+//fn recipe_by_id() {}
