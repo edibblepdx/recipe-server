@@ -36,7 +36,7 @@ cargo install sqlx-cli`
   sqlx prepare
   ```
   to update things so that users can compile before the database is built and   migrated.
-  
+ 
 Because of the above you may need to
 ```
 git add .sqlx migrations
