@@ -2,6 +2,7 @@ extern crate fastrand;
 extern crate log;
 extern crate mime;
 
+mod api;
 mod database;
 mod error;
 mod recipe;
@@ -18,6 +19,11 @@ use sqlx::{SqlitePool, migrate::MigrateDatabase, sqlite};
 use tokio::{net, sync::RwLock};
 use tower_http::trace;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use utoipa::{OpenApi, ToSchema};
+use utoipa_axum::{router::OpenApiRouter, routes};
+use utoipa_rapidoc::RapiDoc;
+use utoipa_redoc::{Redoc, Servable};
+use utoipa_swagger_ui::SwaggerUi;
 
 use std::sync::Arc;
 

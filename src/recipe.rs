@@ -1,9 +1,14 @@
+use axum::{self, http, response::IntoResponse};
 use regex::Regex;
+use serde::{Deserialize, Serialize};
+use sqlx::SqlitePool;
 use std::{fs::File, path::Path};
+use utoipa::ToSchema;
 
 use crate::DatabaseError;
 
-#[derive(Debug)]
+/// Common Data View
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct Recipe {
     pub id: i64,
     pub name: String,
@@ -16,7 +21,8 @@ pub struct Recipe {
     pub dietary_restrictions: Vec<String>,
 }
 
-#[derive(Debug, serde::Deserialize)]
+/// Intermediate Data View as read from CSV file
+#[derive(Debug, Deserialize)]
 pub struct CsvRecipe {
     pub recipe_name: String,
     pub cuisine: String,
@@ -28,6 +34,62 @@ pub struct CsvRecipe {
     pub dietary_restrictions: String,
 }
 
+/// Recipe db interface
+impl Recipe {
+    pub async fn get(db: &SqlitePool, id: i64) -> Result<Self, DatabaseError> {
+        match sqlx::query!("SELECT * FROM recipes WHERE id = $1;", id)
+            .fetch_one(db)
+            .await
+        {
+            Ok(recipe) => {
+                let mut recipe = Recipe {
+                    id: recipe.id,
+                    name: recipe.name,
+                    cuisine: recipe.cuisine,
+                    ingredients: vec![],
+                    cooking_time_minutes: recipe.cooking_time_minutes,
+                    prep_time_minutes: recipe.prep_time_minutes,
+                    servings: recipe.servings,
+                    calories_per_serving: recipe.calories_per_serving,
+                    dietary_restrictions: vec![],
+                };
+
+                recipe.ingredients = match sqlx::query_scalar!(
+                    "SELECT ingredient FROM ingredients WHERE recipe_id = $1;",
+                    recipe.id
+                )
+                .fetch_all(db)
+                .await
+                {
+                    Ok(v) => v,
+                    Err(e) => {
+                        log::warn!("ingredient fetch failed: {}", e);
+                        vec![]
+                    }
+                };
+
+                recipe.dietary_restrictions = match sqlx::query_scalar!(
+                    "SELECT dietary_restriction FROM dietary_restrictions WHERE recipe_id = $1;",
+                    recipe.id
+                )
+                .fetch_all(db)
+                .await
+                {
+                    Ok(v) => v,
+                    Err(e) => {
+                        log::warn!("dietary restriction fetch failed: {}", e);
+                        vec![]
+                    }
+                };
+
+                Ok(recipe)
+            }
+            Err(e) => Err(DatabaseError::FailedDbFetch(e)),
+        }
+    }
+}
+
+/// Default Recipe Stub
 impl Default for Recipe {
     fn default() -> Self {
         Self {
@@ -41,6 +103,12 @@ impl Default for Recipe {
             calories_per_serving: 0,
             dietary_restrictions: vec!["None".to_string()],
         }
+    }
+}
+
+impl IntoResponse for &Recipe {
+    fn into_response(self) -> axum::response::Response {
+        (http::StatusCode::OK, axum::Json(&self)).into_response()
     }
 }
 
@@ -73,6 +141,7 @@ impl From<CsvRecipe> for Recipe {
     }
 }
 
+/// Read recipes as CsvRecipe IR then immediately convert to Recipe format
 pub fn read_recipes<P: AsRef<Path>>(recipes_path: P) -> Result<Vec<Recipe>, DatabaseError> {
     let mut recipes: Vec<Recipe> = Vec::new();
 

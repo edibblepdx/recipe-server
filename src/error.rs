@@ -2,6 +2,8 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum DatabaseError {
+    #[error("recipe fetch failed: {0}")]
+    FailedDbFetch(#[from] sqlx::Error),
     #[error("could not find recipe file: {0}")]
     RecipeNotFound(#[from] std::io::Error),
     #[error("could not read csv file: {0}")]
@@ -11,4 +13,4 @@ pub enum DatabaseError {
 }
 
 #[derive(Debug, Error)]
-pub enum AppError {}
+pub enum ApiError {}

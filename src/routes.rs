@@ -100,7 +100,7 @@ async fn get_recipe(
                 Ok(response::Html(recipe.to_string()).into_response())
             }
         };
-        return result;
+        result
     } else if let GetRecipeParams {
         cuisine: Some(cuisine),
         ..
