@@ -6,6 +6,10 @@ use axum::{
     http,
     response::{self, IntoResponse},
 };
+use std::sync::Arc;
+use tokio::sync::RwLock;
+use utoipa::OpenApi;
+use utoipa_axum::{router::OpenApiRouter, routes};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -24,7 +28,7 @@ pub fn router() -> OpenApiRouter<Arc<RwLock<AppState>>> {
 
 #[utoipa::path(
     get,
-    path = "/api/recipe/id/{recipe_id}",
+    path = "/recipe/id/{recipe_id}",
     responses(
         (status = 200, description = "Get a recipe by id", body = [Recipe]),
         (status = 404, description = "No matching recipe"),
@@ -55,7 +59,7 @@ async fn recipe_get_by_id(
 
 #[utoipa::path(
     get,
-    path = "/api/recipe/random",
+    path = "/recipe/random",
     responses(
         (status = 200, description = "Get a recipe by random", body = [Recipe]),
         (status = 404, description = "No recipe"),
@@ -77,7 +81,7 @@ async fn recipe_get_random(
 
 #[utoipa::path(
     get,
-    path = "/api/recipe/cuisine/{cuisine}",
+    path = "/recipe/cuisine/{cuisine}",
     responses(
         (status = 200, description = "Get a recipe by cuisine", body = [Recipe]),
         (status = 404, description = "No matching recipe"),

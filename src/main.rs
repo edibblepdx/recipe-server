@@ -17,13 +17,6 @@ use routes::*;
 use clap::Parser;
 use sqlx::{SqlitePool, migrate::MigrateDatabase, sqlite};
 use tokio::{net, sync::RwLock};
-use tower_http::trace;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use utoipa::{OpenApi, ToSchema};
-use utoipa_axum::{router::OpenApiRouter, routes};
-use utoipa_rapidoc::RapiDoc;
-use utoipa_redoc::{Redoc, Servable};
-use utoipa_swagger_ui::SwaggerUi;
 
 use std::sync::Arc;
 
@@ -65,25 +58,10 @@ async fn serve(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         init_db_from_csv(&db, &path).await?;
     }
 
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "recipe-server=debug,info".into()),
-        )
-        .with(tracing_subscriber::fmt::layer())
-        .init();
-    /*
-    https://carlosmv.hashnode.dev/adding-logging-and-tracing-to-an-axum-app-rust
-    */
-    let trace_layer = trace::TraceLayer::new_for_http()
-        .make_span_with(trace::DefaultMakeSpan::new().level(tracing::Level::INFO))
-        .on_response(trace::DefaultOnResponse::new().level(tracing::Level::INFO));
-
     let current_recipe = Recipe::default();
-
     let app_state = AppState { db, current_recipe };
     let state = Arc::new(RwLock::new(app_state));
-    let app = init_router().layer(trace_layer).with_state(state);
+    let app = init_router().with_state(state);
 
     let listener = net::TcpListener::bind("127.0.0.1:3000").await?;
     eprintln!("Listening on 127.0.0.1:3000");
