@@ -24,7 +24,7 @@ pub fn init_router() -> Router<Arc<RwLock<AppState>>> {
     let mime_favicon = "image/vnd.microsoft.icon".parse().unwrap();
 
     Router::new()
-        .route("/", routing::get(get_recipe))
+        .route("/", routing::get(root))
         .route_service(
             "/recipe.css",
             services::ServeFile::new_with_mime("assets/static/recipe.css", &mime::TEXT_CSS_UTF_8),
@@ -35,7 +35,7 @@ pub fn init_router() -> Router<Arc<RwLock<AppState>>> {
         )
 }
 
-async fn get_recipe(
+async fn root(
     State(app_state): State<Arc<RwLock<AppState>>>,
     Query(params): Query<GetRecipeParams>,
 ) -> Result<response::Response, http::StatusCode> {
@@ -43,64 +43,15 @@ async fn get_recipe(
     let db = &app_state.db;
 
     if let GetRecipeParams { id: Some(id), .. } = params {
-        let result = match sqlx::query!("SELECT * FROM recipes WHERE id = $1;", id)
-            .fetch_one(db)
-            .await
-        {
-            Ok(recipe) => {
-                let mut recipe = Recipe {
-                    id: recipe.id,
-                    name: recipe.name,
-                    cuisine: recipe.cuisine,
-                    ingredients: vec![],
-                    cooking_time_minutes: recipe.cooking_time_minutes,
-                    prep_time_minutes: recipe.prep_time_minutes,
-                    servings: recipe.servings,
-                    calories_per_serving: recipe.calories_per_serving,
-                    dietary_restrictions: vec![],
-                };
-
-                recipe.ingredients = match sqlx::query_scalar!(
-                    "SELECT ingredient FROM ingredients WHERE recipe_id = $1;",
-                    recipe.id
-                )
-                .fetch_all(db)
-                .await
-                {
-                    Ok(v) => v,
-                    Err(e) => {
-                        log::warn!("ingredient fetch failed: {}", e);
-                        vec![]
-                    }
-                };
-
-                recipe.dietary_restrictions = match sqlx::query_scalar!(
-                    "SELECT dietary_restriction FROM dietary_restrictions WHERE recipe_id = $1;",
-                    recipe.id
-                )
-                .fetch_all(db)
-                .await
-                {
-                    Ok(v) => v,
-                    Err(e) => {
-                        log::warn!("dietary restriction fetch failed: {}", e);
-                        vec![]
-                    }
-                };
-
-                app_state.current_recipe = recipe;
-                let recipe = IndexTemplate::new(&app_state.current_recipe);
-                Ok(response::Html(recipe.to_string()).into_response())
-            }
+        app_state.current_recipe = match id.parse::<i64>() {
+            Ok(id) => Recipe::get_by_id(db, id).await.unwrap_or_default(),
             Err(e) => {
-                log::warn!("recipe fetch failed: {}", e);
-                //Err(http::StatusCode::NOT_FOUND)
-                app_state.current_recipe = Recipe::default();
-                let recipe = IndexTemplate::new(&app_state.current_recipe);
-                Ok(response::Html(recipe.to_string()).into_response())
+                log::warn!("malformed id: {e}");
+                Recipe::default()
             }
         };
-        result
+        let recipe = IndexTemplate::new(&app_state.current_recipe);
+        Ok(response::Html(recipe.to_string()).into_response())
     } else if let GetRecipeParams {
         cuisine: Some(cuisine),
         ..
@@ -111,43 +62,22 @@ async fn get_recipe(
             return Ok(response::Redirect::to("/").into_response());
         }
 
-        match sqlx::query_scalar!(
-            "SELECT id FROM recipes WHERE cuisine = $1 COLLATE NOCASE ORDER BY RANDOM() LIMIT 1;",
-            cuisine
-        )
-        .fetch_one(db)
-        .await
-        {
-            Ok(id) => {
-                // redirect
-                let uri = format!("/?id={}", id);
-                Ok(response::Redirect::to(&uri).into_response())
-            }
-            Err(e) => {
-                log::error!("not found: {e}");
-                app_state.current_recipe = Recipe::default();
-                let recipe = IndexTemplate::new(&app_state.current_recipe);
-                Ok(response::Html(recipe.to_string()).into_response())
-            }
-        }
-    } else {
-        // Random Recipe
-        match sqlx::query_scalar!("SELECT id FROM recipes ORDER BY RANDOM() LIMIT 1;")
-            .fetch_one(db)
+        app_state.current_recipe = Recipe::get_random_cuisine(db, &cuisine)
             .await
-        {
-            Ok(id) => {
-                // redirect
-                let uri = format!("/?id={}", id);
-                Ok(response::Redirect::to(&uri).into_response())
-            }
-            Err(e) => {
-                log::error!("recipe selection failed: {e}");
-                app_state.current_recipe = Recipe::default();
-                let recipe = IndexTemplate::new(&app_state.current_recipe);
-                Ok(response::Html(recipe.to_string()).into_response())
-            }
+            .unwrap_or_default();
+        let recipe = IndexTemplate::new(&app_state.current_recipe);
+        Ok(response::Html(recipe.to_string()).into_response())
+    } else {
+        /*
+        Ok(id) => {
+            // redirect
+            let uri = format!("/?id={}", id);
+            Ok(response::Redirect::to(&uri).into_response())
         }
+        */
+        app_state.current_recipe = Recipe::get_random(db).await.unwrap_or_default();
+        let recipe = IndexTemplate::new(&app_state.current_recipe);
+        Ok(response::Html(recipe.to_string()).into_response())
     }
 }
 

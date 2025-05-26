@@ -36,7 +36,7 @@ pub struct CsvRecipe {
 
 /// Recipe db interface
 impl Recipe {
-    pub async fn get(db: &SqlitePool, id: i64) -> Result<Self, DatabaseError> {
+    pub async fn get_by_id(db: &SqlitePool, id: i64) -> Result<Self, DatabaseError> {
         match sqlx::query!("SELECT * FROM recipes WHERE id = $1;", id)
             .fetch_one(db)
             .await
@@ -84,6 +84,29 @@ impl Recipe {
 
                 Ok(recipe)
             }
+            Err(e) => Err(DatabaseError::FailedDbFetch(e)),
+        }
+    }
+
+    pub async fn get_random(db: &SqlitePool) -> Result<Self, DatabaseError> {
+        match sqlx::query_scalar!("SELECT id FROM recipes ORDER BY RANDOM() LIMIT 1;")
+            .fetch_one(db)
+            .await
+        {
+            Ok(id) => Recipe::get_by_id(db, id).await,
+            Err(e) => Err(DatabaseError::FailedDbFetch(e)),
+        }
+    }
+
+    pub async fn get_random_cuisine(db: &SqlitePool, cuisine: &str) -> Result<Self, DatabaseError> {
+        match sqlx::query_scalar!(
+            "SELECT id FROM recipes WHERE cuisine = $1 COLLATE NOCASE ORDER BY RANDOM() LIMIT 1;",
+            cuisine
+        )
+        .fetch_one(db)
+        .await
+        {
+            Ok(id) => Recipe::get_by_id(db, id).await,
             Err(e) => Err(DatabaseError::FailedDbFetch(e)),
         }
     }
