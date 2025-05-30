@@ -2,7 +2,6 @@ extern crate fastrand;
 extern crate log;
 extern crate mime;
 
-mod api;
 mod database;
 mod error;
 mod recipe;

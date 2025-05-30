@@ -1,7 +1,7 @@
 use crate::*;
 
 use axum::{
-    self,
+    self, Router,
     extract::{Path, State},
     http,
     response::{self, IntoResponse},
@@ -10,6 +10,9 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use utoipa::OpenApi;
 use utoipa_axum::{router::OpenApiRouter, routes};
+use utoipa_rapidoc::RapiDoc;
+use utoipa_redoc::{Redoc, Servable};
+use utoipa_swagger_ui::SwaggerUi;
 
 #[derive(OpenApi)]
 #[openapi(
@@ -19,11 +22,27 @@ use utoipa_axum::{router::OpenApiRouter, routes};
 )]
 pub struct ApiDoc;
 
-pub fn router() -> OpenApiRouter<Arc<RwLock<AppState>>> {
-    OpenApiRouter::new()
+pub fn router() -> Router<Arc<RwLock<AppState>>> {
+    // API router
+    let api_router = OpenApiRouter::new()
         .routes(routes!(recipe_get_by_id))
         .routes(routes!(recipe_get_random))
-        .routes(routes!(recipe_get_random_cuisine))
+        .routes(routes!(recipe_get_random_cuisine));
+
+    // API router
+    let (api_router, api) = OpenApiRouter::with_openapi(ApiDoc::openapi())
+        .nest("/api/v1", api_router)
+        .split_for_parts();
+
+    // API Docs
+    let swagger_ui = SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", api.clone());
+    let redoc_ui = Redoc::with_url("/redoc", api);
+    let rapidoc_ui = RapiDoc::new("/api-docs/openapi.json").path("/rapidoc");
+
+    api_router
+        .merge(swagger_ui)
+        .merge(redoc_ui)
+        .merge(rapidoc_ui)
 }
 
 #[utoipa::path(
