@@ -25,6 +25,8 @@ struct Args {
     init_from: Option<std::path::PathBuf>,
     #[arg(short, long, name = "db-uri")]
     db_uri: Option<String>,
+    #[arg(short, long, name = "port", default_value_t = 3000)]
+    port: u16,
 }
 
 struct AppState {
@@ -62,8 +64,8 @@ async fn serve(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let state = Arc::new(RwLock::new(app_state));
     let app = init_router().with_state(state);
 
-    let listener = net::TcpListener::bind("127.0.0.1:3000").await?;
-    eprintln!("Listening on 127.0.0.1:3000");
+    let listener = net::TcpListener::bind(format!("127.0.0.1:{}", args.port)).await?;
+    eprintln!("Listening on 127.0.0.1:{}", args.port);
 
     axum::serve(listener, app).await?;
     Ok(())
