@@ -65,29 +65,17 @@ async fn root(
     } = params
     {
         if cuisine.trim().is_empty() {
-            // redirect
             return Ok(response::Redirect::to("/").into_response());
         }
 
-        app_state.current_recipe = Recipe::get_random_cuisine(db, &cuisine)
+        let recipe = Recipe::get_random_cuisine(db, &cuisine)
             .await
             .unwrap_or_default();
-        let recipe = IndexTemplate::new(&app_state.current_recipe);
-        Ok(response::Html(recipe.to_string()).into_response())
+        let uri = format!("/?id={}&cuisine={}", recipe.id, recipe.cuisine);
+        Ok(response::Redirect::to(&uri).into_response())
     } else {
-        /*
-        Ok(id) => {
-            // redirect
-            let uri = format!("/?id={}", id);
-            Ok(response::Redirect::to(&uri).into_response())
-        }
-        */
-        app_state.current_recipe = Recipe::get_random(db).await.unwrap_or_default();
-        let recipe = IndexTemplate::new(&app_state.current_recipe);
-        Ok(response::Html(recipe.to_string()).into_response())
+        let recipe = Recipe::get_random(db).await.unwrap_or_default();
+        let uri = format!("/?id={}", recipe.id);
+        Ok(response::Redirect::to(&uri).into_response())
     }
 }
-
-//fn recipe_by_random() {}
-//fn recipe_by_cuisuine() {}
-//fn recipe_by_id() {}
