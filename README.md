@@ -10,12 +10,21 @@ By default the recipe database URI is `sqlite://db/recipe.db`. You can override 
 
 To build and run this code for the first time, you will probably want:
 
-cargo run --release -- --init-from assets/static/receipes_from_around_the_world.csv
+`cargo run --release -- --init-from assets/static/receipes_from_around_the_world.csv`
 
 This will load an initial collection of recipes into the newly-created database.
-Development. 
 
 > Warning that some of the recipes in the dataset are malformed and will not load properly.
+
+You can change the port with `--port [number]`
+
+## Routes
+
+The router merges web and api routes. 
+
+Web routes return html and never fail. They accept `id` and `cuisine` parameters and will just return a default stub if not found.
+
+Api routes return a json view of data and can fail with a `404` response. You can find api documentation at `/redoc`. They allow for get requests by `id`, `cuisine`, and `random`.
 
 ## Development
 
