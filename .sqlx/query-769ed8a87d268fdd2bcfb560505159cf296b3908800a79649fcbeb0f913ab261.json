@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO dietary_restrictions (recipe_id, dietary_restriction) VALUES ($1, $2);",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "769ed8a87d268fdd2bcfb560505159cf296b3908800a79649fcbeb0f913ab261"
+}

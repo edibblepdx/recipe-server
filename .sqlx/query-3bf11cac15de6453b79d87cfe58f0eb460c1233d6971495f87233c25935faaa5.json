@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO recipes (name, cuisine, cooking_time_minutes, prep_time_minutes, servings, calories_per_serving) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id;",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 6
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "3bf11cac15de6453b79d87cfe58f0eb460c1233d6971495f87233c25935faaa5"
+}

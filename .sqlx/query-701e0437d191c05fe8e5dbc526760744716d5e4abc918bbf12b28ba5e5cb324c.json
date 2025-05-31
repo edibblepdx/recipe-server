@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT ingredient FROM ingredients WHERE recipe_id = $1;",
+  "describe": {
+    "columns": [
+      {
+        "name": "ingredient",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "701e0437d191c05fe8e5dbc526760744716d5e4abc918bbf12b28ba5e5cb324c"
+}
