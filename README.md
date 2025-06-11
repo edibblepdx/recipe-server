@@ -6,7 +6,7 @@ Recipes are provided by [Collection of Recipes around the world](https://www.kag
 
 # Build and Run
 
-By default the recipe database URI is `sqlite://db/recipe.db`. You can override this with the `--db-uri` command-line argument.
+By default the recipe database URI is `sqlite://db/recipe.db`. You can override this with the `--db-uri` command-line argument. If using the default path, install `sqlx-cli` and create a `db` directory in the root of the project and create a database file with `sqlx database create`.
 
 To build and run this code for the first time, you will probably want:
 
